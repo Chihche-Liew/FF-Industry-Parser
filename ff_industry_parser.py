@@ -8,32 +8,47 @@ class FFIndustryParser:
     @staticmethod
     def _parse_ff_industry(text: str) -> dict:
         result = {}
-        current_section = None
+        current_section_id = None
+        current_section_full_description = ""
 
-        for line in text.splitlines():
-            line = line.rstrip()
+        for raw_line in text.splitlines():
+            line = raw_line.rstrip()
+
             if not line.strip():
                 continue
 
-            match_section = re.match(r'^\s*(\d*)\s+([A-Za-z&]+)\s+(.+)$', line)
+            match_section = re.match(r'^\s*(\d+)\s+([A-Za-z&]+)\s+(.+)$', line)
             if match_section:
-                sec_id, name, description = match_section.groups()
-                current_section = sec_id
+                sec_id, name, description_text = match_section.groups()
+                current_section_id = sec_id
+                current_section_full_description = description_text.strip()
                 result[sec_id] = {
-                    "name": name,
-                    "description": description,
+                    "name": name.strip(),
+                    "description": current_section_full_description,
                     "ranges": []
                 }
                 continue
 
-            match_range = re.match(r'^\s*(\d{4})-(\d{4})\s+(.+)$', line)
-            if match_range and current_section:
-                start, end, label = match_range.groups()
-                result[current_section]["ranges"].append({
-                    "sic_start": int(start),
-                    "sic_end": int(end),
-                    "label": label.strip()
-                })
+            if current_section_id:
+                match_new_range = re.match(r'^\s*(\d{4})-(\d{4})\s*$', line)
+                if match_new_range:
+                    start, end = match_new_range.groups()
+                    result[current_section_id]["ranges"].append({
+                        "sic_start": int(start),
+                        "sic_end": int(end),
+                        "label": current_section_full_description
+                    })
+                    continue
+
+                match_old_range = re.match(r'^\s*(\d{4})-(\d{4})\s+(.+?)\s*$', line)
+                if match_old_range:
+                    start, end, label_text = match_old_range.groups()
+                    result[current_section_id]["ranges"].append({
+                        "sic_start": int(start),
+                        "sic_end": int(end),
+                        "label": label_text.strip()
+                    })
+                    continue
 
         return result
 
@@ -48,7 +63,7 @@ class FFIndustryParser:
         return self.sic_dict
 
 if __name__ == "__main__":
-    with open('Siccodes49.txt', 'r') as f:
+    with open('Siccodes12.txt', 'r') as f:
         ff_text = f.read()
 
     parser = FFIndustryParser(ff_text)
